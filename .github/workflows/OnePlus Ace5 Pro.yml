@@ -175,7 +175,16 @@ jobs:
       - name: Build kernel
         run: |
          cd kernel_workspace/kernel_platform
-         tools/bazel run --config=fast --config=stamp --lto=thin //common:kernel_aarch64_dist -- --dist_dir=dist
+         tools/bazel run --config=fast --config=stamp --lto=thin //common:kernel_aarch64_dist -- --dist_dir=dist> build.log 2>&1&
+         PID=$!
+         # 每隔 30 秒输出一次日志
+         while kill -0 $PID 2>/dev/null; do
+         echo "[$(date)] 编译仍在运行..."
+         tail -n 50 build.log || true
+         sleep 30
+         done
+         wait $PID
+         cat build.log
 
       - name: Make AnyKernel3
         run: |
@@ -192,12 +201,6 @@ jobs:
          rm -rf ./AnyKernel3_Ace5Pro/.git
          rm -rf ./AnyKernel3_Ace5Pro/push.sh
          cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3_Ace5Pro/
-
-      - name: Upload AnyKernel3
-        uses: actions/upload-artifact@v4
-        with:
-         name: SuKiSu_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
-         path: ./AnyKernel3_Ace5Pro/*
 
 
       - name: Upload AnyKernel3
