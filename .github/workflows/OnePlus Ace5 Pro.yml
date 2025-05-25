@@ -158,7 +158,7 @@ jobs:
             cd kernel_workspace/kernel_platform/common
             wget https://github.com/RunRunxka/OGKI-PATCH/raw/main/hmbird_gki.patch
             echo "正在打OGKI转换GKI补丁"
-            patch -p1 < hmbird_gki.patch
+            patch -p1 -F 3 < hmbird_gki.patch
             echo "OGKI转换GKI patch完成"
 
       - name: Add sched_ext
