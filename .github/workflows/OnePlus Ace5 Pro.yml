@@ -197,17 +197,17 @@ jobs:
          
       - name: Make AnyKernel3
         run: |
-         git clone https://github.com/RunRunxka/AnyKernel3_Ace5Pro.git --depth=1
-         rm -rf ./AnyKernel3_Ace5Pro/.git
-         rm -rf ./AnyKernel3_Ace5Pro/push.sh
-         cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3_Ace5Pro/
+         git clone https://github.com/RunRunxka/AnyKernel3_Default.git --depth=1
+         rm -rf ./AnyKernel3_Default/.git
+         rm -rf ./AnyKernel3_Default/push.sh
+         cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3_Default/
 
 
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
          name: SuKiSu_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
-         path: ./AnyKernel3_Ace5Pro/*
+         path: ./AnyKernel3_Default/*
          
       - name: Upload Image
         uses: actions/upload-artifact@v4
