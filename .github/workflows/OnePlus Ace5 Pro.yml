@@ -156,7 +156,7 @@ jobs:
       - name: HMBIRD_GKI
         run: |
             cd kernel_workspace/kernel_platform/common
-            wget https://RunRunxka:${{ secrets.SCHED_EXT }}@github.com/RunRunxka/OGKI-PATCH/raw/main/hmbird_gki.patch
+            wget https://github.com/RunRunxka/OGKI-PATCH/raw/main/hmbird_gki.patch
             echo "正在打OGKI转换GKI补丁"
             patch -p1 < hmbird_gki.patch
             echo "OGKI转换GKI patch完成"
