@@ -175,16 +175,7 @@ jobs:
       - name: Build kernel
         run: |
          cd kernel_workspace/kernel_platform
-         tools/bazel run --config=fast --config=stamp --lto=thin //common:kernel_aarch64_dist -- --dist_dir=dist> build.log 2>&1&
-         PID=$!
-         # 每隔 30 秒输出一次日志
-         while kill -0 $PID 2>/dev/null; do
-         echo "[$(date)] 编译仍在运行..."
-         tail -n 50 build.log || true
-         sleep 30
-         done
-         wait $PID
-         cat build.log
+         tools/bazel run --config=fast --config=stamp --lto=thin //common:kernel_aarch64_dist -- --dist_dir=dist
 
       - name: Make AnyKernel3
         run: |
