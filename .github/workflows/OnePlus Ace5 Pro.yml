@@ -153,13 +153,12 @@ jobs:
          cd kernel_workspace/kernel_platform
          sed -i 's/res="\$res\$(cat "\$file")"/res="${{ github.event.inputs.KERNEL_NAME }}"/g' ./common/scripts/setlocalversion
 
-      - name: Convert HMBIRD_OGKI to HMBIRD_GKI
+      - name: HMBIRD_GKI
         run: |
             cd kernel_workspace/kernel_platform/common
-            sed -i '1iobj-y += hmbird_patch.o' drivers/Makefile
-            wget https://github.com/RunRunxka/Ace5-Pro-Sukisu/raw/main/hmbird_patch.patch
+            wget https://RunRunxka:${{ secrets.OGKI-PATCH }}@github.com/RunRunxka/OGKI-PATCH/raw/main/hmbird_gki.patch
             echo "正在打OGKI转换GKI补丁"
-            patch -p1 -F 3 < hmbird_patch.patch
+            patch -p1 < hmbird_gki.patch
             echo "OGKI转换GKI patch完成"
 
       - name: Add sched_ext
