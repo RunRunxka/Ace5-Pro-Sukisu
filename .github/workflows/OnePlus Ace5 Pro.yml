@@ -27,13 +27,13 @@ on:
         required: true
         default: '-android15-8-g013ec21bba94-abogki383916444'
 
-      boot gki:
+      boot-gki:
         type: boolean
         description: "是否启用方法gki修补boot"
         required: true
-        default: false
+        default: true
      
-      boot patch:
+      boot-patch:
         type: boolean
         description: "是否启用方法patch修补boot"
         required: true
@@ -167,7 +167,7 @@ jobs:
 
       - name: Apply HMBIRD_GKI patch
         run: |
-         if [ "${{ github.event.inputs.boot patch }}" = "true" ]; then
+         if [ "${{ github.event.inputs.boot-patch }}" = "true" ]; then
          cd kernel_workspace/kernel_platform
          git clone https://RunRunxka:${{ secrets.SCHED_EXT }}@github.com/RunRunxka/OGKI-PATCH.git
          rm -rf ./OGKI-PATCH/.git
@@ -181,7 +181,7 @@ jobs:
 
       - name: Apply HMBIRD_GKI gki
         run: |
-         if [ "${{ github.event.inputs.boot gki }}" = "true" ]; then
+         if [ "${{ github.event.inputs.boot-gki }}" = "true" ]; then
          cd kernel_workspace/kernel_platform
          git clone https://RunRunxka:${{ secrets.SCHED_EXT }}@github.com/RunRunxka/OGKI-PATCH.git
          rm -rf ./OGKI-PATCH/.git
