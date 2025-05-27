@@ -29,15 +29,15 @@ on:
 
       boot gki:
         type: boolean
-        description: "是否启用方法1修补boot"
+        description: "是否启用方法gki修补boot"
         required: true
         default: false
      
       boot patch:
         type: boolean
-        description: "是否启用方法2修补boot"
+        description: "是否启用方法patch修补boot"
         required: true
-        default: true
+        default: false
 
 jobs:
   build:
