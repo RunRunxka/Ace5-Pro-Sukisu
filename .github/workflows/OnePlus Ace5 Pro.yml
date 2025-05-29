@@ -29,19 +29,19 @@ on:
 
       boot-gki:
         type: boolean
-        description: "是否启用方法gki修补boot"
+        description: "启用方法gki修补boot"
         required: true
         default: true
      
       boot-patch:
         type: boolean
-        description: "是否启用方法patch修补boot"
+        description: "启用方法patch修补boot"
         required: true
         default: false
         
       69hide:
         type: boolean
-        description: "是否启用69补丁"
+        description: "启用69补丁"
         required: true
         default: false
 
