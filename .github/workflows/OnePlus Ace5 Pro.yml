@@ -39,7 +39,7 @@ on:
         required: true
         default: false
         
-      69_hied:
+      69_hide:
         type: boolean
         description: "是否启用69补丁"
         required: true
