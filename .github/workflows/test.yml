@@ -201,8 +201,10 @@ jobs:
       - name: Add make name
         run: |
          cd kernel_workspace/kernel_platform
-         sed -i 's/res="\$res\$(cat "\$file")"/res="${{ github.event.inputs.KERNEL_NAME }}"/g' ./common/scripts/setlocalversion
-
+         sed -i '186s|echo ".*"|echo "${KERNELVERSION}${scm_version}${config_localversion}"|' common/scripts/setlocalversion
+         sed -i "s/\${scm_version}/${{ github.event.inputs.KERNEL_NAME }}/g" ./common/scripts/setlocalversion
+         echo 'CONFIG_LOCALVERSION="-4k"' >> ./common/arch/arm64/configs/gki_defconfig
+         
       - name: Apply HMBIRD_GKI patch
         run: |
          if [ "${{ github.event.inputs.boot-patch }}" = "true" ]; then
