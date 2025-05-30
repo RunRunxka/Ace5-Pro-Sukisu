@@ -266,6 +266,10 @@ jobs:
          mkdir -p ../dist
          cp out/arch/arm64/boot/Image ../dist/
 
+      - name: Click to verify build time
+        run: |
+         strings kernel_workspace/kernel_platform/common/out/vmlinux | grep "UTC"
+
       - name: Make AnyKernel3
         run: |
          cd kernel_workspace/kernel_platform/dist/
