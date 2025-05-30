@@ -57,6 +57,13 @@ jobs:
           remove-android: 'true'
           remove-haskell: 'true'
           remove-codeql: 'true'
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.OGKIPATCH }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
           
       - name: Configure Git
         run: |
@@ -179,7 +186,7 @@ jobs:
         run: |
          if [ "${{ github.event.inputs.boot-patch }}" = "true" ]; then
          cd kernel_workspace/kernel_platform
-         git clone https://RunRunxka:${{ secrets.SCHED_EXT }}@github.com/RunRunxka/OGKI-PATCH.git
+         git clone git@github.com:RunRunxka/OGKI-PATCH.git
          rm -rf ./OGKI-PATCH/.git
          rm -rf ./OGKI-PATCH/hmbird_patch.patch
          cd common
@@ -193,7 +200,7 @@ jobs:
         run: |
          if [ "${{ github.event.inputs.boot-gki }}" = "true" ]; then
          cd kernel_workspace/kernel_platform
-         git clone https://RunRunxka:${{ secrets.SCHED_EXT }}@github.com/RunRunxka/OGKI-PATCH.git
+         git clone git@github.com:RunRunxka/OGKI-PATCH.git
          rm -rf ./OGKI-PATCH/.git
          rm -rf ./OGKI-PATCH/hmbird_patch.patch
          cd common
