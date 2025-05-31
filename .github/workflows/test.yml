@@ -26,13 +26,11 @@ on:
         description: "修改内核名称"
         required: true
         default: '-android15-8-g013ec21bba94-abogki383916444'
-
       boot-gki:
         type: boolean
         description: "启用方法gki修补boot"
         required: true
         default: true
-     
       boot-patch:
         type: boolean
         description: "启用方法patch修补boot"
