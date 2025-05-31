@@ -75,7 +75,7 @@ jobs:
          sudo apt-get update
          sudo apt-get install -y python3 git curl ccache libelf-dev
 
-      - name: Restore ccache
+      - name: Restore Ccache
         uses: actions/cache@v3
         with:
          path: /home/runner/.ccache
@@ -83,7 +83,7 @@ jobs:
          restore-keys: |
           ccache-${{ runner.os }}-
 
-      - name: Setup ccache environment
+      - name: Setup Ccache Environment
         run: |
          echo "CCACHE_DIR=/home/runner/.ccache" >> $GITHUB_ENV
          echo "CCACHE_MAXSIZE=8G" >> $GITHUB_ENV
@@ -91,18 +91,18 @@ jobs:
          echo "CCACHE_NOHASHDIR=true" >> $GITHUB_ENV
          echo "CCACHE_HARDLINK=true" >> $GITHUB_ENV
          echo "/usr/lib/ccache" >> $GITHUB_PATH
-         
-      - name: Show ccache stats
+
+      - name: Show Ccache Stats
         run: |
          ccache -s || true
 
-      - name: Install repo tool
+      - name: Install Repo Tool
         run: |
          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
          chmod a+x ~/repo
          sudo mv ~/repo /usr/local/bin/repo
 
-      - name: Initialize repo and sync
+      - name: Initialize Repo And Sync
         run: |
          mkdir kernel_workspace && cd kernel_workspace
          repo init -u https://github.com/RunRunxka/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
@@ -110,7 +110,7 @@ jobs:
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          
-      - name: Set up SukiSU
+      - name: Set Up SukiSU
         run: |
          cd kernel_workspace/kernel_platform
          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
@@ -120,7 +120,7 @@ jobs:
          export KSU_VERSION=$KSU_VERSION
          sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
         
-      - name: Set up susfs
+      - name: Set Up Susfs
         run: |
            cd kernel_workspace
            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
@@ -154,7 +154,7 @@ jobs:
           echo "隐藏应用_patch完成"
 
 
-      - name: Apply lz4kd Patches
+      - name: Apply Lz4kd Patches
         run: |
           cd kernel_workspace/kernel_platform/common
           cp ../../SukiSU_patch/other/lz4k_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4kd.patch ./
@@ -198,7 +198,7 @@ jobs:
           cd common
           git add -A && git commit -a -m "BUILD Kernel"
           
-      - name: Add make name
+      - name: Add Make Name
         run: |
          cd kernel_workspace/kernel_platform
          sed -i '186s|echo ".*"|echo "${KERNELVERSION}${scm_version}${config_localversion}"|' common/scripts/setlocalversion
@@ -232,7 +232,7 @@ jobs:
          echo "OGKI转换GKI完成"
          fi
             
-      - name: Add sched_ext
+      - name: Add Sched_Ext
         run: |
          cd kernel_workspace/kernel_platform/
          git clone https://github.com/RunRunxka/sched_ext.git
@@ -260,11 +260,11 @@ jobs:
          mkdir -p ../dist
          cp out/arch/arm64/boot/Image ../dist/
 
-      - name: Click to verify build time
+      - name: Click To Verify Build Time
         run: |
          strings kernel_workspace/kernel_platform/common/out/vmlinux | grep "UTC"
 
-      - name: Make AnyKernel3
+      - name: Make Sukisu AnyKernel3
         run: |
          cd kernel_workspace/kernel_platform/dist/
          curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
