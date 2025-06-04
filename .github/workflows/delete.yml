@@ -11,11 +11,10 @@ on:
         type: choice
         description: '清理的工作流名称'
         required: true
-        default: 'OnePlus SM8750 Build SuKiSu SUSFS'
+        default: 'OnePlus Build SuKiSu SUSFS'
         options:
-          - GKI Build SuKiSu SUSFS
           - OnePlus Build SuKiSu SUSFS
-          - OnePlus SM8750 Build SuKiSu SUSFS
+          - OnePlus Build SuKiSu SUSFS Clang构建
           - 清理工作流运行记录
       count:
         description: '最多清理的运行次数'

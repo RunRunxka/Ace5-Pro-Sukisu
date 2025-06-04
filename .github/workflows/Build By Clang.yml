@@ -1,4 +1,5 @@
-name: OnePlus Ace5 Pro Build SuKiSu SUSFS
+name: OnePlus Build SuKiSu SUSFS Clang构建
+# This workflow builds a kernel with SukiSU and SUSFS support for OnePlus devices.
 on:
   workflow_dispatch:
     inputs:
