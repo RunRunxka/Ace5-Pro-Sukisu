@@ -37,10 +37,6 @@ on:
         description: "启用方法patch修补boot"
         required: true
         default: false
-      69hide:
-        description: "启用69补丁"
-        required: true
-        default: "false"
         
 
 jobs:
@@ -147,16 +143,6 @@ jobs:
            cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
            patch -p1 -F 3 < syscall_hooks.patch
            echo "完成"
-
-      - name: Apply Hide Stuff Patches
-        run: |
-          if [[ "${{ github.event.inputs.69hide }}" == "true" ]]; then
-            cd kernel_workspace/kernel_platform/common
-            cp ../../SukiSU_patch/69_hide_stuff.patch ./
-            echo "正在打隐藏应用补丁"
-            patch -p1 -F 3 < 69_hide_stuff.patch
-            echo "隐藏应用_patch完成"
-          fi
 
 
       - name: Apply Lz4kd Patches
