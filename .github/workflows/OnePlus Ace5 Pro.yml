@@ -9,7 +9,7 @@ on:
       FEIL:
         description: "配置文件"
         required: true
-        default: 'JiuGeFaCai_oneplus_ace5_pro_v'
+        default: 'oneplus_ace5_pro'
       CPUD:
         description: "处理器代号"
         required: true
@@ -44,6 +44,12 @@ on:
         description: "启用69补丁"
         required: true
         default: false
+
+      KPM:
+        type: boolean
+        description: "启用KPM"
+        required: true
+        default: true
         
 
 jobs:
@@ -140,7 +146,6 @@ jobs:
           echo "隐藏应用_patch完成"
           fi
 
-
       - name: Apply lz4kd Patches
         run: |
           cd kernel_workspace/kernel_platform/common
@@ -151,7 +156,9 @@ jobs:
         run: |
           cd kernel_workspace/kernel_platform
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
+          if [ "${{ github.event.inputs.KPM }}" = "true" ]; then
           echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
 
           # Add VFS configuration settings
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
