@@ -67,17 +67,40 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      - name: Add SSH Keys
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-           ${{ secrets.SCHED_EXT }}
-           ${{ secrets.OGKIPATCH }}
 
       - name: Configure Git
         run: |
          git config --global user.name "RunRunxka"
          git config --global user.email "960228595@qq.com"
+
+      - name: Setup Multiple SSH Keys
+        run: |
+         mkdir -p ~/.ssh
+         # 添加第一个密钥（原始密钥）
+         echo "${{ secrets.OGKIPATCH }}" > ~/.ssh/id_ogkipatch
+         chmod 600 ~/.ssh/id_ogkipatch
+
+         # 添加第二个密钥示例（替换 YOUR_SECRET_NAME）
+         echo "${{ secrets.SCHED_EXT }}" > ~/.ssh/id_otherkey
+         chmod 600 ~/.ssh/id_otherkey
+         ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+         cat > ~/.ssh/config << EOF
+         Host github.com
+         HostName github.com
+         User git
+         IdentityFile ~/.ssh/id_ogkipatch
+         IdentitiesOnly yes
+
+         Host github.com
+         HostName github.com
+         User git
+         IdentityFile ~/.ssh/id_sched_ext
+         IdentitiesOnly yes
+         EOF
+
+         # 验证配置
+         cat ~/.ssh/config
           
       - name: Install Dependencies
         run: |
