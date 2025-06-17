@@ -76,13 +76,10 @@ jobs:
       - name: Setup Multiple SSH Keys
         run: |
          mkdir -p ~/.ssh
-         # 添加第一个密钥（原始密钥）
          echo "${{ secrets.OGKIPATCH }}" > ~/.ssh/id_ogkipatch
          chmod 600 ~/.ssh/id_ogkipatch
-
-         # 添加第二个密钥示例（替换 YOUR_SECRET_NAME）
-         echo "${{ secrets.SCHED_EXT }}" > ~/.ssh/id_otherkey
-         chmod 600 ~/.ssh/id_otherkey
+         echo "${{ secrets.SCHED_EXT }}" > ~/.ssh/id_sched_ext
+         chmod 600 ~/.ssh/id_sched_ext
          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
          cat > ~/.ssh/config << EOF
