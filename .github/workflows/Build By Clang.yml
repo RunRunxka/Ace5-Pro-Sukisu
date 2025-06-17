@@ -70,14 +70,16 @@ jobs:
       - name: Setup SSH with Agent
         run: |
          mkdir -p ~/.ssh
-         echo "${{ secrets.SCHED_EXT }}" > ~/.ssh/key1
-         chmod 600 ~/.ssh/key1
-         echo "${{ secrets.OGKIPATCH }}" > ~/.ssh/key2
-         chmod 600 ~/.ssh/key2
+         chmod 700 ~/.ssh
+         echo "${{ secrets.SCHED_EXT }}" > ~/.ssh/sched_key
+         chmod 600 ~/.ssh/sched_key
+         echo "${{ secrets.OGKIPATCH }}" > ~/.ssh/ogki_key
+         chmod 600 ~/.ssh/ogki_key
          eval "$(ssh-agent -s)"
-         ssh-add ~/.ssh/key1
-         ssh-add ~/.ssh/key2
+         ssh-add ~/.ssh/sched_key
+         ssh-add ~/.ssh/ogki_key
          ssh-keyscan github.com >> ~/.ssh/known_hosts
+         chmod 644 ~/.ssh/known_hosts
 
       - name: Configure Git
         run: |
