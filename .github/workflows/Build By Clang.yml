@@ -245,7 +245,7 @@ jobs:
       - name: Add Sched_Ext
         run: |
          cd kernel_workspace/kernel_platform/
-         git clone https://github.com/RunRunxka/sched_ext.git
+         git clone git@github.com:RunRunxka/sched_ext.git
          cp -r ./sched_ext/* ./common/kernel/sched
          rm -rf ./sched_ext/.git
          cd common/kernel/sched
