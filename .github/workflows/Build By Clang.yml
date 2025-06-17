@@ -236,8 +236,8 @@ jobs:
          echo 'CONFIG_LOCALVERSION="-4k"' >> ./common/arch/arm64/configs/gki_defconfig
          
       - name: Apply HMBIRD_GKI patch
+        if: ${{ github.event.inputs.boot-patch == 'true' }}
         run: |
-         if [ "${{ github.event.inputs.boot-patch }}" = "true" ]; then
          cd kernel_workspace/kernel_platform
          git clone git@github.com:RunRunxka/OGKI-PATCH.git
          rm -rf ./OGKI-PATCH/.git
@@ -247,11 +247,10 @@ jobs:
          echo "正在打OGKI转换GKI补丁"
          patch -p1 < ../OGKI-PATCH/hmbird_patch.patch
          echo "OGKI转换GKI patch完成"
-         fi
 
       - name: Apply HMBIRD_GKI gki
+        if: ${{ github.event.inputs.boot-gki == 'true' }}
         run: |
-         if [ "${{ github.event.inputs.boot-gki }}" = "true" ]; then
          cd kernel_workspace/kernel_platform
          git clone git@github.com:RunRunxka/OGKI-PATCH.git
          rm -rf ./OGKI-PATCH/.git
@@ -260,7 +259,6 @@ jobs:
          echo "正在打OGKI转换GKI补丁"
          patch -p1 < ../OGKI-PATCH/hmbird_gki.patch
          echo "OGKI转换GKI完成"
-         fi
             
       - name: Add Sched_Ext
         run: |
