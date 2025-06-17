@@ -67,15 +67,18 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      - name: Setup SSH
+      - name: Setup SSH with Agent
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SCHED_EXT }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          echo "${{ secrets.OGKIPATCH }}" > ~/.ssh/RUN
-          chmod 600 ~/.ssh/RUN
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          
+         mkdir -p ~/.ssh
+         echo "${{ secrets.SCHED_EXT }}" > ~/.ssh/key1
+         chmod 600 ~/.ssh/key1
+         echo "${{ secrets.OGKIPATCH }}" > ~/.ssh/key2
+         chmod 600 ~/.ssh/key2
+         eval "$(ssh-agent -s)"
+         ssh-add ~/.ssh/key1
+         ssh-add ~/.ssh/key2
+         ssh-keyscan github.com >> ~/.ssh/known_hosts
+
       - name: Configure Git
         run: |
          git config --global user.name "RunRunxka"
