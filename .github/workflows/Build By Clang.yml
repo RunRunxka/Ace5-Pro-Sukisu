@@ -67,19 +67,12 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      - name: Setup SSH with Agent
-        run: |
-         mkdir -p ~/.ssh
-         chmod 700 ~/.ssh
-         echo "${{ secrets.SCHED_EXT }}" > ~/.ssh/sched_key
-         chmod 600 ~/.ssh/sched_key
-         echo "${{ secrets.OGKIPATCH }}" > ~/.ssh/ogki_key
-         chmod 600 ~/.ssh/ogki_key
-         eval "$(ssh-agent -s)"
-         ssh-add ~/.ssh/sched_key
-         ssh-add ~/.ssh/ogki_key
-         ssh-keyscan github.com >> ~/.ssh/known_hosts
-         chmod 644 ~/.ssh/known_hosts
+      - name: Add SSH Keys
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+           ${{ secrets.SCHED_EXT }}
+           ${{ secrets.OGKIPATCH }}
 
       - name: Configure Git
         run: |
