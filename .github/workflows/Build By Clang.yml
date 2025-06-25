@@ -280,6 +280,7 @@ jobs:
          cd common/kernel/sched
                    
       - name: Build Kernel
+      - name: Build Kernel
         run: |
          export PATH="${{ github.workspace }}/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
          export PATH="/usr/lib/ccache:$PATH"
@@ -296,13 +297,20 @@ jobs:
          cd kernel_workspace/kernel_platform/common
          make -j$(nproc) $MAKE_ARGS gki_defconfig
          make -j$(nproc) $MAKE_ARGS all
+    
+         # 创建输出目录
          mkdir -p ../dist
-         cp out/arch/arm64/boot/Image ../dist/
+    
+         # 判断是否需要剥离调试符号
          if [ "${{ github.event.inputs.ENABLE_LTO }}" = "true" ]; then
-             llvm-strip --strip-debug out/vmlinux
-             cp out/vmlinux.stripped ../dist/Image
+         cd out
+         # 剥离调试符号
+         llvm-strip --strip-debug vmlinux
+         # 使用剥离后的文件
+         cp vmlinux ../dist/Image
          else
-             cp out/arch/arm64/boot/Image ../dist/
+         # 未启用LTO时使用原始文件
+         cp out/arch/arm64/boot/Image ../dist/
          fi
 
       - name: Click To Verify Build Time
