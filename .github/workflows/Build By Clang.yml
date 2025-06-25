@@ -32,11 +32,6 @@ on:
         description: "启用方法gki修补boot"
         required: true
         default: true
-      boot-patch:
-        type: boolean
-        description: "启用方法patch修补boot"
-        required: true
-        default: false
       hide_69:
         type: boolean
         description: "启用hide补丁"
@@ -252,7 +247,7 @@ jobs:
          git add -A && git commit -a -m "BUILD Kernel with LTO enabled"
          
       - name: Apply HMBIRD_GKI patch
-        if: ${{ github.event.inputs.boot-patch == 'true' }}
+        if: ${{ github.event.inputs.boot-gki == 'false' }}
         run: |
          cd kernel_workspace/kernel_platform
          git clone git@github.com:RunRunxka/OGKI-PATCH.git
