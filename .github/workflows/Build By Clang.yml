@@ -297,21 +297,8 @@ jobs:
          cd kernel_workspace/kernel_platform/common
          make -j$(nproc) $MAKE_ARGS gki_defconfig
          make -j$(nproc) $MAKE_ARGS all
-    
-         # 创建输出目录
          mkdir -p ../dist
-    
-         # 判断是否需要剥离调试符号
-         if [ "${{ github.event.inputs.ENABLE_LTO }}" = "true" ]; then
-         cd out
-         # 剥离调试符号
-         llvm-strip --strip-debug vmlinux
-         # 使用剥离后的文件
-         cp vmlinux ../dist/Image
-         else
-         # 未启用LTO时使用原始文件
          cp out/arch/arm64/boot/Image ../dist/
-         fi
 
       - name: Click To Verify Build Time
         run: |
