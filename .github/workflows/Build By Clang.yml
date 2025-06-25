@@ -236,7 +236,7 @@ jobs:
          sed -i "s/\${scm_version}/${{ github.event.inputs.KERNEL_NAME }}/g" ./common/scripts/setlocalversion
          echo 'CONFIG_LOCALVERSION="-4k"' >> ./common/arch/arm64/configs/gki_defconfig
 
-      - name: 启用LTO
+      - name: LTO Support
         if: ${{ fromJSON(github.event.inputs.ENABLE_LTO) }}
         run: |
          cd kernel_workspace/kernel_platform
@@ -290,7 +290,7 @@ jobs:
          export MAKE_ARGS="LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang \
          RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc \
          PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole \
-         LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS=-Wno-error \
+         LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS='-O2 -Wno-error' \
          SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}"
          echo "Using SOURCE_DATE_EPOCH: $SOURCE_DATE_EPOCH"
 
