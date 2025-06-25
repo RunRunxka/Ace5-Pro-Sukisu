@@ -47,6 +47,11 @@ on:
         description: "启用KPM补丁"
         required: true
         default: true
+      ENABLE_LTO:
+        description: '启用 LTO'
+        required: false
+        default: false
+        type: boolean
         
 
 jobs:
@@ -235,6 +240,16 @@ jobs:
          sed -i '186s|echo ".*"|echo "${KERNELVERSION}${scm_version}${config_localversion}"|' common/scripts/setlocalversion
          sed -i "s/\${scm_version}/${{ github.event.inputs.KERNEL_NAME }}/g" ./common/scripts/setlocalversion
          echo 'CONFIG_LOCALVERSION="-4k"' >> ./common/arch/arm64/configs/gki_defconfig
+
+      - name: 启用LTO
+        if: ${{ fromJSON(github.event.inputs.ENABLE_LTO) }}
+        run: |
+         cd kernel_workspace/kernel_platform
+         echo "CONFIG_LTO_CLANG=y" >> ./common/arch/arm64/configs/gki_defconfig
+         echo "CONFIG_LTO_CLANG_THIN=y" >> ./common/arch/arm64/configs/gki_defconfig
+         sudo sed -i 's/check_defconfig//' ./common/build.config.gki
+         cd common
+         git add -A && git commit -a -m "BUILD Kernel with LTO enabled"
          
       - name: Apply HMBIRD_GKI patch
         if: ${{ github.event.inputs.boot-patch == 'true' }}
