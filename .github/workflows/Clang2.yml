@@ -345,9 +345,9 @@ jobs:
           # 设置优化的构建环境
           export PATH="${{ github.workspace }}/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
           export PATH="/usr/lib/ccache:$PATH"
-          export KERNEL_TIME=$(date -u)
+          export KERNEL_TIME="Tue Dec 17 23:36:49 UTC 2024"
           export KBUILD_BUILD_TIMESTAMP="$KERNEL_TIME"
-          export SOURCE_DATE_EPOCH=$(date +%s)
+          export SOURCE_DATE_EPOCH=$(date -d "$KERNEL_TIME" +%s)
           
           # 优化的编译参数
           export MAKE_ARGS="LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC='ccache clang' \
