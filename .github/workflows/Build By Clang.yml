@@ -279,7 +279,7 @@ jobs:
          rm -rf ./sched_ext/.git
          cd common/kernel/sched
                    
-      - name: Build Kernel
+    
       - name: Build Kernel
         run: |
          export PATH="${{ github.workspace }}/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
