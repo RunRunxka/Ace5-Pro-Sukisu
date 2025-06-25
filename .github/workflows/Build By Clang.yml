@@ -298,6 +298,12 @@ jobs:
          make -j$(nproc) $MAKE_ARGS all
          mkdir -p ../dist
          cp out/arch/arm64/boot/Image ../dist/
+         if [ "${{ github.event.inputs.ENABLE_LTO }}" = "true" ]; then
+             llvm-strip --strip-debug out/vmlinux
+             cp out/vmlinux.stripped ../dist/Image
+         else
+             cp out/arch/arm64/boot/Image ../dist/
+         fi
 
       - name: Click To Verify Build Time
         run: |
