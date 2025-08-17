@@ -223,12 +223,6 @@ jobs:
           patch -p1 -F 3 < lz4k_oplus.patch || true
           echo 'lz4k_oplus_patch完成'
 
-      - name: Apply Basic Lz4kd Patches
-        if: ${{ github.event.inputs.ZRAM == 'false' }}
-        run: |
-          cd kernel_workspace/kernel_platform/common
-          cp ../../SukiSU_patch/other/lz4k_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4kd.patch ./
-          patch -p1 -F 3 < lz4kd.patch || true
 
       # 新增：LZ4 1.10.0 升级支持
       - name: Upgrade LZ4 to 1.10.0
