@@ -1,0 +1,507 @@
+name: OnePlus Build SuKiSu SUSFS Clang构建
+# This workflow builds a kernel with SukiSU and SUSFS support for OnePlus devices.
+on:
+  workflow_dispatch:
+    inputs:
+      CPU:
+        description: "分支"
+        required: true
+        default: 'sm8750'
+      FEIL:
+        description: "配置文件"
+        required: true
+        default: 'oneplus_ace5_pro'
+      CPUD:
+        description: "处理器代号"
+        required: true
+        default: 'sun'
+      ANDROID_VERSION:
+        description: "内核安卓版本"
+        required: true
+        default: 'android15'
+      KERNEL_VERSION:
+        description: "内核版本"
+        required: true
+        default: '6.6'
+      KERNEL_NAME:
+        description: "修改内核名称"
+        required: true
+        default: '-android15-8-g013ec21bba94-abogki383916444'
+      boot-gki:
+        type: boolean
+        description: "启用方法gki修补boot"
+        required: true
+        default: true
+      hide_69:
+        type: boolean
+        description: "启用hide补丁"
+        required: true
+        default: false
+      KPM:
+        type: boolean
+        description: "启用KPM补丁"
+        required: true
+        default: true
+      ENABLE_LTO:
+        description: '启用 LTO (智能模式)'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - 'auto'
+          - 'true'
+          - 'false'
+      ZRAM:
+        type: boolean
+        description: "启用增强ZRAM算法"
+        required: true
+        default: true
+      FAST_BUILD:
+        type: boolean
+        description: "启用快速构建模式"
+        required: true
+        default: false
+        
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      CCACHE_MAXSIZE: 8G
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+
+      - name: Configure Git
+        run: |
+         git config --global user.name "RunRunxka"
+         git config --global user.email "960228595@qq.com"
+
+      - name: Setup Multiple SSH Keys
+        run: |
+         mkdir -p ~/.ssh
+         echo "${{ secrets.OGKIPATCH }}" > ~/.ssh/id_ogkipatch
+         chmod 600 ~/.ssh/id_ogkipatch
+         echo "${{ secrets.SCHED_EXT }}" > ~/.ssh/id_sched_ext
+         chmod 600 ~/.ssh/id_sched_ext
+         ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+         cat > ~/.ssh/config << EOF
+         Host github.com
+         HostName github.com
+         User git
+         IdentityFile ~/.ssh/id_ogkipatch
+         IdentitiesOnly yes
+
+         Host github-sched-ext
+         HostName github.com
+         User git
+         IdentityFile ~/.ssh/id_sched_ext
+         IdentitiesOnly yes
+         EOF
+
+         # 验证配置
+         cat ~/.ssh/config
+          
+      - name: Install Dependencies
+        run: |
+         sudo apt-get update
+         sudo apt-get install -y python3 git curl ccache libelf-dev \
+           build-essential flex bison libssl-dev \
+           libncurses-dev liblz4-tool zlib1g-dev \
+           libxml2-utils rsync unzip
+
+      # 优化的缓存配置
+      - name: Set Cache Environment
+        run: |
+          echo "CCACHE_DIR=$HOME/.ccache_${{ github.event.inputs.FEIL }}" >> $GITHUB_ENV
+          mkdir -p "$HOME/.ccache_${{ github.event.inputs.FEIL }}"
+          echo "set: $HOME/.ccache_${{ github.event.inputs.FEIL }}"
+
+      - name: Restore Ccache
+        uses: actions/cache@v3
+        with:
+         path: ${{ env.CCACHE_DIR }}
+         key: ccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.event.inputs.FEIL }}-${{ github.event.inputs.FAST_BUILD == 'true' && 'alpha' || 'beta' }}-v2
+
+      - name: Initialize Ccache
+        run: |
+         INIT_FLAG="${{ env.CCACHE_DIR }}/.ccache_initialized"
+         if command -v ccache >/dev/null 2>&1; then
+           if [ ! -f "$INIT_FLAG" ]; then
+             echo "初始化 ccache (${{ env.CCACHE_DIR }})..."
+             mkdir -p "${{ env.CCACHE_DIR }}"
+             ccache -M ${{ env.CCACHE_MAXSIZE }}
+             touch "$INIT_FLAG"
+             echo "✅ ccache 初始化完成"
+           else
+             echo "✅ ccache 已初始化，跳过"
+           fi
+         else
+           echo "⚠ 未安装 ccache，跳过"
+         fi
+
+      - name: Show Ccache Stats
+        run: |
+         ccache -s || true
+
+      - name: Install Repo Tool
+        run: |
+         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+         chmod a+x ~/repo
+         sudo mv ~/repo /usr/local/bin/repo
+
+      - name: Initialize Repo And Sync
+        run: |
+         mkdir kernel_workspace && cd kernel_workspace
+         repo init -u https://github.com/RunRunxka/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
+         repo --trace sync -c -j$(nproc --all) --no-tags
+         rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
+         rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
+         
+      - name: Set Up SukiSU
+        run: |
+         cd kernel_workspace/kernel_platform
+         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+         cd ./KernelSU
+         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10700)
+         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+         export KSU_VERSION=$KSU_VERSION
+         sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+        
+      - name: Set Up Susfs
+        run: |
+           cd kernel_workspace
+           #git clone https://github.com/RunRunxka/susfs4ksu.git
+           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
+           git clone https://github.com/ExmikoN/SukiSU_patch.git
+
+           cd kernel_platform        
+           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
+           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+
+           # 增强ZRAM支持 - 复制LZ4K相关文件
+           if [ "${{ github.event.inputs.ZRAM }}" = "true" ]; then
+             echo "正在拉取增强ZRAM补丁"
+             cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux/
+             cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib/
+             cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto/
+             cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
+           else
+             # 基础lz4k支持
+             cp -r ../SukiSU_patch/other/lz4k/include/linux/* ./common/include/linux
+             cp -r ../SukiSU_patch/other/lz4k/lib/* ./common/lib
+             cp -r ../SukiSU_patch/other/lz4k/crypto/* ./common/crypto
+           fi
+
+           # Apply patches
+           cd ./common
+
+           # 针对6.6内核且缺少Trusty的设备进行补丁修正
+           KERNEL_VERSION="${{ env.KERNEL_VERSION }}"
+           file="${{ github.event.inputs.FILE }}"
+           TRUSTY_EXISTS="false"
+           if [[ "$KERNEL_VERSION" == "6.6" ]]; then
+             if grep -q 'common-modules/trusty' "$GITHUB_WORKSPACE/.repo/manifests_fallback/${file}.xml"; then
+               TRUSTY_EXISTS="true"
+             fi
+             echo "trusty_exists=$TRUSTY_EXISTS" >> $GITHUB_OUTPUT
+
+             if [[ "$TRUSTY_EXISTS" == "false" && "$file" != "oneplus_pad_2_pro" && "$file" != "oneplus_pad_3" ]]; then
+               echo "修复内核版本6.6部分机型缺失Trusty OS导致的susfs的报错"
+               sed -i 's/-32,12 +32,38/-32,11 +32,37/g' 50_add_susfs_in_gki-${{ env.KANDROID_VERSION }}-${KERNEL_VERSION}.patch
+               sed -i '/#include <trace\/hooks\/fs.h>/d' 50_add_susfs_in_gki-${{ env.KANDROID_VERSION }}-${KERNEL_VERSION}.patch
+             fi
+           fi
+
+           patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
+           cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
+           patch -p1 -F 3 < syscall_hooks.patch
+           echo "完成"
+
+      - name: Apply Hide 69 Patches
+        if: ${{ github.event.inputs.hide_69 == 'true' }}
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          cp ../../SukiSU_patch/other/69_hide/${{ github.event.inputs.KERNEL_VERSION }}/69_hide.patch ./
+          patch -p1 -F 3 < 69_hide.patch || true
+        
+      # 增强的ZRAM补丁处理
+      - name: Apply Enhanced ZRAM Patches
+        if: ${{ github.event.inputs.ZRAM == 'true' }}
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          
+          # 应用lz4kd补丁
+          cp ../../SukiSU_patch/other/zram/zram_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4kd.patch ./
+          echo "正在打lz4kd补丁"
+          patch -p1 -F 3 < lz4kd.patch || true
+          echo 'lz4kd_patch完成'
+          
+          # 应用lz4k_oplus补丁
+          cp ../../SukiSU_patch/other/zram/zram_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4k_oplus.patch ./
+          echo "正在打lz4k_oplus补丁"
+          patch -p1 -F 3 < lz4k_oplus.patch || true
+          echo 'lz4k_oplus_patch完成'
+
+      - name: Apply Basic Lz4kd Patches
+        if: ${{ github.event.inputs.ZRAM == 'false' }}
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          cp ../../SukiSU_patch/other/lz4k_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4kd.patch ./
+          patch -p1 -F 3 < lz4kd.patch || true
+
+      # 新增：LZ4 1.10.0 升级支持
+      - name: Upgrade LZ4 to 1.10.0
+        if: ${{ github.event.inputs.ZRAM == 'true' }}
+        run: |
+          LZ4_VERSION="1.10.0"
+          LZ4_DOWNLOAD_URL="https://github.com/lz4/lz4/archive/refs/tags/v${LZ4_VERSION}.tar.gz"
+          cd kernel_workspace/kernel_platform/common
+          mkdir -p lz4_temp && cd lz4_temp
+          echo "下载LZ4 ${LZ4_VERSION}源码..."
+          curl -Ls "${LZ4_DOWNLOAD_URL}" -o lz4.tar.gz
+          tar -zxf lz4.tar.gz --strip-components=1
+
+          # 复制文件并使用独立命名，避免与LZ4K冲突
+          echo "复制LZ4文件到内核目录..."
+          # 源码文件（添加"lz4v2_"前缀）
+          cp lib/lz4.c ../lib/lz4v2_core.c
+          cp lib/lz4.h ../lib/lz4v2_core.h
+          cp lib/lz4hc.c ../lib/lz4v2_hc.c
+          cp lib/lz4hc.h ../lib/lz4v2_hc.h
+          # 头文件（放在独立路径）
+          mkdir -p ../include/linux/lz4v2
+          cp lib/lz4.h ../include/linux/lz4v2/lz4.h
+          cp lib/lz4hc.h ../include/linux/lz4v2/lz4hc.h
+
+          # 全局重命名函数和宏（彻底隔离命名空间）
+          echo "重命名符号以避免冲突..."
+          # 核心压缩函数重命名
+          sed -i 's/LZ4_compress_default/lz4v2_compress_default/g' ../lib/lz4v2_core.c ../lib/lz4v2_core.h
+          sed -i 's/LZ4_decompress_safe/lz4v2_decompress_safe/g' ../lib/lz4v2_core.c ../lib/lz4v2_core.h
+          # HC高压缩函数重命名
+          sed -i 's/LZ4_compress_HC/lz4v2_compress_HC/g' ../lib/lz4v2_hc.c ../lib/lz4v2_hc.h
+          # 内部宏和辅助函数重命名
+          sed -i 's/LZ4_/LZ4V2_/g' ../lib/lz4v2_core.c ../lib/lz4v2_core.h ../lib/lz4v2_hc.c ../lib/lz4v2_hc.h
+          
+          # 添加内核兼容性适配
+          echo "添加内核适配代码..."
+          # 引入内核必要头文件
+          sed -i '1i#include <linux/types.h>' ../lib/lz4v2_core.c
+          sed -i '2i#include <linux/kernel.h>' ../lib/lz4v2_core.c
+          sed -i '3i#include <linux/module.h>' ../lib/lz4v2_core.c
+          # HC文件同样处理
+          sed -i '1i#include <linux/types.h>' ../lib/lz4v2_hc.c
+          sed -i '2i#include <linux/kernel.h>' ../lib/lz4v2_hc.c
+          sed -i '3i#include <linux/module.h>' ../lib/lz4v2_hc.c
+
+          # 添加模块声明（符合内核规范）
+          echo "添加模块元数据..."
+          cat >> ../lib/lz4v2_core.c << 'EOF'
+          MODULE_LICENSE("GPL");
+          MODULE_DESCRIPTION("LZ4 1.10.0 Compression (v2)");
+          MODULE_AUTHOR("LZ4 Project");
+          EXPORT_SYMBOL(lz4v2_compress_default);
+          EXPORT_SYMBOL(lz4v2_decompress_safe);
+          EOF
+
+          cat >> ../lib/lz4v2_hc.c << 'EOF'
+          MODULE_LICENSE("GPL");
+          MODULE_DESCRIPTION("LZ4HC 1.10.0 Compression (v2)");
+          MODULE_AUTHOR("LZ4 Project");
+          EXPORT_SYMBOL(lz4v2_compress_HC);
+          EOF
+
+          # 更新Makefile确保编译（独立于LZ4K）
+          echo "更新Makefile配置..."
+          if ! grep -q "lz4v2_core.o" ../lib/Makefile; then
+            echo "obj-\$(CONFIG_LZ4V2_COMPRESS) += lz4v2_core.o" >> ../lib/Makefile
+            echo "obj-\$(CONFIG_LZ4V2_COMPRESS) += lz4v2_hc.o" >> ../lib/Makefile
+          fi
+
+          # 清理临时文件
+          cd .. && rm -rf lz4_temp
+          echo "LZ4 ${LZ4_VERSION}集成完成（与LZ4K兼容）"
+           
+      - name: Add SUSFS Configuration Settings
+        run: |
+          cd kernel_workspace/kernel_platform
+          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
+          if [ "${{ github.event.inputs.KPM }}" = "true" ]; then
+          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+
+          # Add VFS configuration settings
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # Add SUSFS configuration settings
+          echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 增强ZRAM配置
+          if [ "${{ github.event.inputs.ZRAM }}" = "true" ]; then
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_842=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./common/arch/arm64/configs/gki_defconfig
+            
+            # LZ4 1.10.0 配置
+            echo "CONFIG_LZ4V2_COMPRESS=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_LZ4V2_HC=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_LZ4V2_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_LZ4V2=y" >> ./common/arch/arm64/configs/gki_defconfig
+            
+            # 性能优化配置
+            echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_NET_SCH_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
+          else
+            # 基础配置
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_842=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+          
+          echo "CONFIG_DTBO_VALIDATION=n" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # Remove check_defconfig
+          sed -i 's/check_defconfig//' ./common/build.config.gki
+          cd common
+          git add -A && git commit -a -m "BUILD Kernel"
+          
+      - name: Add Make Name
+        run: |
+         cd kernel_workspace/kernel_platform
+         sed -i '186s|echo ".*"|echo "${KERNELVERSION}${scm_version}${config_localversion}"|' common/scripts/setlocalversion
+         sed -i "s/\${scm_version}/${{ github.event.inputs.KERNEL_NAME }}/g" ./common/scripts/setlocalversion
+         echo 'CONFIG_LOCALVERSION="-4k"' >> ./common/arch/arm64/configs/gki_defconfig
+
+      # 智能LTO支持
+      - name: Smart LTO Support
+        run: |
+         cd kernel_workspace/kernel_platform
+         KERNEL_VERSION="${{ github.event.inputs.KERNEL_VERSION }}"
+         LTO_SETTING="${{ github.event.inputs.ENABLE_LTO }}"
+         FAST_BUILD="${{ github.event.inputs.FAST_BUILD }}"
+         
+         echo "内核版本: $KERNEL_VERSION, LTO设置: $LTO_SETTING, 快速构建: $FAST_BUILD"
+         
+         ENABLE_LTO_FINAL="false"
+         
+         if [ "$LTO_SETTING" = "true" ]; then
+           ENABLE_LTO_FINAL="true"
+         elif [ "$LTO_SETTING" = "auto" ]; then
+           # 智能LTO逻辑：仅对特定内核版本和快速构建启用
+           if [[ "$KERNEL_VERSION" == "5.10" || "$KERNEL_VERSION" == "5.15" ]] && [ "$FAST_BUILD" = "true" ]; then
+             ENABLE_LTO_FINAL="true"
+             echo "智能LTO: 为内核$KERNEL_VERSION启用ThinLTO（快速构建模式）"
+           else
+             echo "智能LTO: 内核$KERNEL_VERSION不适合LTO或非快速构建，跳过"
+           fi
+         fi
+         
+         if [ "$ENABLE_LTO_FINAL" = "true" ]; then
+           echo "启用LTO优化"
+           echo "CONFIG_LTO_CLANG=y" >> ./common/arch/arm64/configs/gki_defconfig
+           echo "CONFIG_LTO_CLANG_THIN=y" >> ./common/arch/arm64/configs/gki_defconfig
+           cd common
+           git add -A && git commit -a -m "BUILD Kernel with Smart LTO enabled"
+         else
+           echo "LTO已禁用或智能跳过"
+         fi
+         
+      - name: Apply HMBIRD_GKI patch
+        if: ${{ github.event.inputs.boot-gki == 'false' }}
+        run: |
+         cd kernel_workspace/kernel_platform
+         git clone git@github.com:RunRunxka/OGKI-PATCH.git
+         rm -rf ./OGKI-PATCH/.git
+         rm -rf ./OGKI-PATCH/hmbird_patch.patch
+         cd common
+         sed -i '1iobj-y += hmbird_patch.o' drivers/Makefile
+         echo "正在打OGKI转换GKI补丁"
+         patch -p1 < ../OGKI-PATCH/hmbird_patch.patch
+         echo "OGKI转换GKI patch完成"
+
+      - name: Apply HMBIRD_GKI gki
+        if: ${{ github.event.inputs.boot-gki == 'true' }}
+        run: |
+         cd kernel_workspace/kernel_platform
+         git clone git@github.com:RunRunxka/OGKI-PATCH.git
+         rm -rf ./OGKI-PATCH/.git
+         rm -rf ./OGKI-PATCH/hmbird_patch.patch
+         cd common
+         echo "正在打OGKI转换GKI补丁"
+         patch -p1 < ../OGKI-PATCH/hmbird_gki.patch
+         echo "OGKI转换GKI完成"
+            
+      - name: Add Sched_Ext
+        run: |
+         cd kernel_workspace/kernel_platform/
+         git clone git@github-sched-ext:RunRunxka/sched_ext.git
+         cp -r ./sched_ext/* ./common/kernel/sched
+         rm -rf ./sched_ext/.git
+         cd common/kernel/sched
+                   
+      # 优化的构建流程
+      - name: Build Kernel (Smart Mode)
+        run: |
+         KERNEL_VERSION="${{ github.event.inputs.KERNEL_VERSION }}"
+         FAST_BUILD="${{ github.event.inputs.FAST_BUILD }}"
+         
+         # 根据内核版本选择编译工具链
+         if [[ "$KERNEL_VERSION" == "6.6" ]]; then
+           CLANG_PATH="clang-r510928"
+           CLANG_DIR="prebuilts"
+         elif [[ "$KERNEL_VERSION" == "6.1" ]]; then
+           CLANG_PATH="clang-r487747c"
+           CLANG_DIR="prebuilts"
+         elif [[ "$KERNEL_VERSION" == "5.15" ]]; then
+           CLANG_PATH="clang-r450784e"
+           CLANG_DIR="prebuilts"
+         elif [[ "$KERNEL_VERSION" == "5.10" ]]; then
+           CLANG_PATH="clang-r416183b"
+           CLANG_DIR="prebuilts-master"
+           USE_LLVM_IAS=true
+         else
+           # 回退到通用路径
+           CLANG_PATH="clang-r510928"
+           CLANG_DIR="prebuilts"
+         fi
+         
+         export PATH="${{ github.workspace }}/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin:$PATH"
+         export PATH="/usr/lib/ccache:$PATH"
+         export CC="ccache clang"
+         export KERNEL_TIME="Tue Dec 17 23:36:49 UTC 2024"
+         export KBUILD_BUILD_TIMESTAMP="$KERNEL_TIME
