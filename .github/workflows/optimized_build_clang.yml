@@ -183,10 +183,10 @@ jobs:
            cd ./common
 
            # 针对6.6内核且缺少Trusty的设备进行补丁修正
-           KERNEL_VERSION="${{ env.KERNEL_VERSION }}"
+           KERNEL_version="${{ github.event.inputs.KERNEL_VERSION }}"
            file="${{ github.event.inputs.FILE }}"
            TRUSTY_EXISTS="false"
-           if [[ "$KERNEL_VERSION" == "6.6" ]]; then
+           if [[ "$KERNEL_version" == "6.6" ]]; then
              if grep -q 'common-modules/trusty' "$GITHUB_WORKSPACE/.repo/manifests_fallback/${file}.xml"; then
                TRUSTY_EXISTS="true"
              fi
@@ -194,8 +194,8 @@ jobs:
 
              if [[ "$TRUSTY_EXISTS" == "false" && "$file" != "oneplus_pad_2_pro" && "$file" != "oneplus_pad_3" ]]; then
                echo "修复内核版本6.6部分机型缺失Trusty OS导致的susfs的报错"
-               sed -i 's/-32,12 +32,38/-32,11 +32,37/g' 50_add_susfs_in_gki-${{ env.KANDROID_VERSION }}-${KERNEL_VERSION}.patch
-               sed -i '/#include <trace\/hooks\/fs.h>/d' 50_add_susfs_in_gki-${{ env.KANDROID_VERSION }}-${KERNEL_VERSION}.patch
+               sed -i 's/-32,12 +32,38/-32,11 +32,37/g' 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${KERNEL_version}.patch
+               sed -i '/#include <trace\/hooks\/fs.h>/d' 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${KERNEL_version}.patch
              fi
            fi
 
