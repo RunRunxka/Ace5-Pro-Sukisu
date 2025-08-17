@@ -7,7 +7,7 @@ on:
         description: "分支"
         required: true
         default: 'sm8750'
-      FEIL:
+      FILE:
         description: "配置文件"
         required: true
         default: 'oneplus_ace5_pro'
@@ -42,25 +42,11 @@ on:
         description: "启用KPM补丁"
         required: true
         default: true
-      ENABLE_LTO:
-        description: '启用 LTO (智能模式)'
-        required: false
-        default: 'auto'
-        type: choice
-        options:
-          - 'auto'
-          - 'true'
-          - 'false'
       ZRAM:
         type: boolean
         description: "启用增强ZRAM算法"
         required: true
         default: true
-      FAST_BUILD:
-        type: boolean
-        description: "启用快速构建模式"
-        required: true
-        default: false
         
 
 jobs:
@@ -122,34 +108,22 @@ jobs:
            libxml2-utils rsync unzip
 
       # 优化的缓存配置
-      - name: Set Cache Environment
-        run: |
-          echo "CCACHE_DIR=$HOME/.ccache_${{ github.event.inputs.FEIL }}" >> $GITHUB_ENV
-          mkdir -p "$HOME/.ccache_${{ github.event.inputs.FEIL }}"
-          echo "set: $HOME/.ccache_${{ github.event.inputs.FEIL }}"
-
       - name: Restore Ccache
         uses: actions/cache@v3
         with:
-         path: ${{ env.CCACHE_DIR }}
-         key: ccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.event.inputs.FEIL }}-${{ github.event.inputs.FAST_BUILD == 'true' && 'alpha' || 'beta' }}-v2
+         path: /home/runner/.ccache
+         key: ccache-${{ runner.os }}-${{ github.ref }}
+         restore-keys: |
+          ccache-${{ runner.os }}-
 
-      - name: Initialize Ccache
+      - name: Setup Ccache Environment
         run: |
-         INIT_FLAG="${{ env.CCACHE_DIR }}/.ccache_initialized"
-         if command -v ccache >/dev/null 2>&1; then
-           if [ ! -f "$INIT_FLAG" ]; then
-             echo "初始化 ccache (${{ env.CCACHE_DIR }})..."
-             mkdir -p "${{ env.CCACHE_DIR }}"
-             ccache -M ${{ env.CCACHE_MAXSIZE }}
-             touch "$INIT_FLAG"
-             echo "✅ ccache 初始化完成"
-           else
-             echo "✅ ccache 已初始化，跳过"
-           fi
-         else
-           echo "⚠ 未安装 ccache，跳过"
-         fi
+         echo "CCACHE_DIR=/home/runner/.ccache" >> $GITHUB_ENV
+         echo "CCACHE_MAXSIZE=8G" >> $GITHUB_ENV
+         echo "CCACHE_COMPILERCHECK=%compiler% -dumpmachine; %compiler% -dumpversion" >> $GITHUB_ENV
+         echo "CCACHE_NOHASHDIR=true" >> $GITHUB_ENV
+         echo "CCACHE_HARDLINK=true" >> $GITHUB_ENV
+         echo "/usr/lib/ccache" >> $GITHUB_PATH
 
       - name: Show Ccache Stats
         run: |
@@ -164,7 +138,7 @@ jobs:
       - name: Initialize Repo And Sync
         run: |
          mkdir kernel_workspace && cd kernel_workspace
-         repo init -u https://github.com/RunRunxka/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
+         repo init -u https://github.com/RunRunxka/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FILE }}.xml --depth=1
          repo --trace sync -c -j$(nproc --all) --no-tags
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
@@ -407,39 +381,6 @@ jobs:
          sed -i "s/\${scm_version}/${{ github.event.inputs.KERNEL_NAME }}/g" ./common/scripts/setlocalversion
          echo 'CONFIG_LOCALVERSION="-4k"' >> ./common/arch/arm64/configs/gki_defconfig
 
-      # 智能LTO支持
-      - name: Smart LTO Support
-        run: |
-         cd kernel_workspace/kernel_platform
-         KERNEL_VERSION="${{ github.event.inputs.KERNEL_VERSION }}"
-         LTO_SETTING="${{ github.event.inputs.ENABLE_LTO }}"
-         FAST_BUILD="${{ github.event.inputs.FAST_BUILD }}"
-         
-         echo "内核版本: $KERNEL_VERSION, LTO设置: $LTO_SETTING, 快速构建: $FAST_BUILD"
-         
-         ENABLE_LTO_FINAL="false"
-         
-         if [ "$LTO_SETTING" = "true" ]; then
-           ENABLE_LTO_FINAL="true"
-         elif [ "$LTO_SETTING" = "auto" ]; then
-           # 智能LTO逻辑：仅对特定内核版本和快速构建启用
-           if [[ "$KERNEL_VERSION" == "5.10" || "$KERNEL_VERSION" == "5.15" ]] && [ "$FAST_BUILD" = "true" ]; then
-             ENABLE_LTO_FINAL="true"
-             echo "智能LTO: 为内核$KERNEL_VERSION启用ThinLTO（快速构建模式）"
-           else
-             echo "智能LTO: 内核$KERNEL_VERSION不适合LTO或非快速构建，跳过"
-           fi
-         fi
-         
-         if [ "$ENABLE_LTO_FINAL" = "true" ]; then
-           echo "启用LTO优化"
-           echo "CONFIG_LTO_CLANG=y" >> ./common/arch/arm64/configs/gki_defconfig
-           echo "CONFIG_LTO_CLANG_THIN=y" >> ./common/arch/arm64/configs/gki_defconfig
-           cd common
-           git add -A && git commit -a -m "BUILD Kernel with Smart LTO enabled"
-         else
-           echo "LTO已禁用或智能跳过"
-         fi
          
       - name: Apply HMBIRD_GKI patch
         if: ${{ github.event.inputs.boot-gki == 'false' }}
@@ -477,31 +418,53 @@ jobs:
       # 优化的构建流程
       - name: Build Kernel (Smart Mode)
         run: |
-         KERNEL_VERSION="${{ github.event.inputs.KERNEL_VERSION }}"
-         FAST_BUILD="${{ github.event.inputs.FAST_BUILD }}"
-         
-         # 根据内核版本选择编译工具链
-         if [[ "$KERNEL_VERSION" == "6.6" ]]; then
-           CLANG_PATH="clang-r510928"
-           CLANG_DIR="prebuilts"
-         elif [[ "$KERNEL_VERSION" == "6.1" ]]; then
-           CLANG_PATH="clang-r487747c"
-           CLANG_DIR="prebuilts"
-         elif [[ "$KERNEL_VERSION" == "5.15" ]]; then
-           CLANG_PATH="clang-r450784e"
-           CLANG_DIR="prebuilts"
-         elif [[ "$KERNEL_VERSION" == "5.10" ]]; then
-           CLANG_PATH="clang-r416183b"
-           CLANG_DIR="prebuilts-master"
-           USE_LLVM_IAS=true
-         else
-           # 回退到通用路径
-           CLANG_PATH="clang-r510928"
-           CLANG_DIR="prebuilts"
-         fi
-         
-         export PATH="${{ github.workspace }}/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin:$PATH"
+         export PATH="${{ github.workspace }}/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
          export PATH="/usr/lib/ccache:$PATH"
-         export CC="ccache clang"
          export KERNEL_TIME="Tue Dec 17 23:36:49 UTC 2024"
-         export KBUILD_BUILD_TIMESTAMP="$KERNEL_TIME
+         export KBUILD_BUILD_TIMESTAMP="$KERNEL_TIME"
+         export SOURCE_DATE_EPOCH=$(date -d "$KERNEL_TIME" +%s)
+         export MAKE_ARGS="LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang \
+         RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc \
+         PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole \
+         LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS=-Wno-error \
+         SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}"
+         echo "Using SOURCE_DATE_EPOCH: $SOURCE_DATE_EPOCH"
+
+         cd kernel_workspace/kernel_platform/common
+         make -j$(nproc) $MAKE_ARGS gki_defconfig
+         make -j$(nproc) $MAKE_ARGS all
+         mkdir -p ../dist
+         cp out/arch/arm64/boot/Image ../dist/
+
+      - name: Click To Verify Build Time
+        run: |
+         strings kernel_workspace/kernel_platform/common/out/vmlinux | grep "UTC"
+
+      - name: Make Sukisu AnyKernel3
+        run: |
+         cd kernel_workspace/kernel_platform/dist/
+         curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
+         chmod +x patch_linux
+         ./patch_linux
+         rm -f Image
+         mv oImage Image
+         
+      - name: Make AnyKernel3
+        run: |
+         git clone https://github.com/RunRunxka/AnyKernel3_Default.git --depth=1
+         rm -rf ./AnyKernel3_Default/.git
+         rm -rf ./AnyKernel3_Default/push.sh
+         cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3_Default/
+
+
+      - name: Upload AnyKernel3
+        uses: actions/upload-artifact@v4
+        with:
+         name: SuKiSu_${{ env.KSUVER }}_${{ github.event.inputs.FILE }}
+         path: ./AnyKernel3_Default/*
+         
+      - name: Upload Image
+        uses: actions/upload-artifact@v4
+        with:
+         name: Image_SuKiSu_${{ env.KSUVER }}_${{ github.event.inputs.FILE }}
+         path: kernel_workspace/kernel_platform/dist/Image
