@@ -450,7 +450,7 @@ jobs:
           mv oImage Image
 
       - name: Make Sukisu AnyKernel3
-        if: ${{ github.event.inputs.KPM == 'true' }}
+        if: ${{ github.event.inputs.KPM == 'false' }}
         run: |
          cd kernel_workspace/kernel_platform/dist/
          curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
