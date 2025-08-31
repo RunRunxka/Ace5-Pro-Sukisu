@@ -273,14 +273,7 @@ jobs:
             echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_CRYPTO_842=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./common/arch/arm64/configs/gki_defconfig
-            
-            # LZ4 1.10.0 配置
-            echo "CONFIG_LZ4V2_COMPRESS=y" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_LZ4V2_HC=y" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_LZ4V2_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_ZRAM_LZ4V2=y" >> ./common/arch/arm64/configs/gki_defconfig
-            
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./common/arch/arm64/configs/gki_defconfig           
             # 性能优化配置
             echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
